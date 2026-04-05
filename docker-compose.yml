@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: devscribe-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: devscribe
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - devscribe_postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: devscribe-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+volumes:
+  devscribe_postgres_data:

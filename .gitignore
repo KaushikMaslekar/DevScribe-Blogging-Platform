@@ -31,3 +31,13 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Monorepo Frontend ###
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+### Environment Files ###
+.env
+.env.*
+!.env.example
