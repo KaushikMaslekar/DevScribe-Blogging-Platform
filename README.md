@@ -12,6 +12,10 @@ DevScribe is a production-grade, developer-focused blogging platform.
 
 This repository is implemented module-by-module. Each module is committed and pushed independently.
 
+Detailed module docs are available at:
+
+- `docs/modules/MODULES_INDEX.md`
+
 ### Module 1 (Current)
 
 - Backend foundation with Spring Boot + PostgreSQL + Flyway baseline
@@ -39,10 +43,22 @@ This repository is implemented module-by-module. Each module is committed and pu
 - Dashboard post management UI with create, filter, publish, delete flows
 - Post detail page route wired to backend slug endpoint
 
+### Module 4 (Current)
+
+- Tag entity and tag-post relationship implemented
+- Post tagging APIs and tag filtering on post lists
+- Tag chips displayed in feed, dashboard, and detail views
+- Public tag browsing endpoint available
+
+### Module 5 (Current)
+
+- TipTap-based rich writing editor added to the dashboard workflow
+- Markdown conversion pipeline added for save/load compatibility
+- Live preview rendering for markdown content
+- Post detail page now renders markdown as formatted HTML
+
 ### Upcoming Modules
 
-- Module 4: Tagging and filtering
-- Module 5: TipTap editor and markdown workflow
 - Module 6: Fault-tolerant autosave system
 - Module 7: Realtime updates (Supabase)
 - Module 8: Collaborative editing (TipTap + Y.js + Hocuspocus)
