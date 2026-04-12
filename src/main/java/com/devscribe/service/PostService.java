@@ -48,10 +48,18 @@ public class PostService {
     private final PostRealtimePublisher postRealtimePublisher;
 
     @Transactional(readOnly = true)
-    public Page<PostSummaryResponse> getPosts(int page, int size, boolean mine, PostStatus status, String tag) {
+    public Page<PostSummaryResponse> getPosts(
+            int page,
+            int size,
+            boolean mine,
+            PostStatus status,
+            String tag,
+            String query
+    ) {
         Pageable pageable = PageRequest.of(page, Math.min(size, 50), Sort.by(Sort.Direction.DESC, "updatedAt"));
 
         String normalizedTag = normalizeTag(tag);
+        String normalizedQuery = normalizeSearchQuery(query);
         Page<Post> postPage;
         if (mine) {
             User user = getCurrentUser();
@@ -73,16 +81,16 @@ public class PostService {
             } else {
                 postPage = postRepository.findByAuthor_IdOrderByUpdatedAtDesc(user.getId(), pageable);
             }
+        } else if (normalizedQuery != null) {
+            postPage = postRepository.searchPublishedPosts(normalizedQuery, normalizedTag, pageable);
+        } else if (normalizedTag != null) {
+            postPage = postRepository.findDistinctByStatusAndTags_SlugOrderByPublishedAtDesc(
+                    PostStatus.PUBLISHED,
+                    normalizedTag,
+                    pageable
+            );
         } else {
-            if (normalizedTag != null) {
-                postPage = postRepository.findDistinctByStatusAndTags_SlugOrderByPublishedAtDesc(
-                        PostStatus.PUBLISHED,
-                        normalizedTag,
-                        pageable
-                );
-            } else {
-                postPage = postRepository.findByStatusOrderByPublishedAtDesc(PostStatus.PUBLISHED, pageable);
-            }
+            postPage = postRepository.findByStatusOrderByPublishedAtDesc(PostStatus.PUBLISHED, pageable);
         }
 
         return postPage.map(this::toSummary);
@@ -346,6 +354,14 @@ public class PostService {
             return null;
         }
         return SlugUtil.toSlug(tag);
+    }
+
+    private String normalizeSearchQuery(String query) {
+        if (query == null || query.isBlank()) {
+            return null;
+        }
+
+        return query.trim();
     }
 
     private List<String> toTagSlugs(Post post) {

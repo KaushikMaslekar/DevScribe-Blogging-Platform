@@ -39,9 +39,10 @@ public class PostController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "false") boolean mine,
             @RequestParam(required = false) PostStatus status,
-            @RequestParam(required = false) String tag
+            @RequestParam(required = false) String tag,
+            @RequestParam(required = false) String query
     ) {
-        return ResponseEntity.ok(postService.getPosts(page, size, mine, status, tag));
+        return ResponseEntity.ok(postService.getPosts(page, size, mine, status, tag, query));
     }
 
     @GetMapping("/{slug}")

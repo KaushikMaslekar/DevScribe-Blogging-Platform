@@ -35,6 +35,44 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             Pageable pageable
     );
 
+    @Query(value = """
+            select distinct p.*
+            from posts p
+            left join post_tags pt on pt.post_id = p.id
+            left join tags t on t.id = pt.tag_id
+            where p.status = 'PUBLISHED'
+              and (:tagSlug is null or t.slug = :tagSlug)
+              and (
+                :searchTerm is null
+                or :searchTerm = ''
+                or lower(p.title) like lower(concat('%', :searchTerm, '%'))
+                or lower(coalesce(p.excerpt, '')) like lower(concat('%', :searchTerm, '%'))
+                or lower(p.markdown_content) like lower(concat('%', :searchTerm, '%'))
+              )
+            order by p.published_at desc nulls last, p.updated_at desc
+            """,
+            countQuery = """
+            select count(distinct p.id)
+            from posts p
+            left join post_tags pt on pt.post_id = p.id
+            left join tags t on t.id = pt.tag_id
+            where p.status = 'PUBLISHED'
+              and (:tagSlug is null or t.slug = :tagSlug)
+              and (
+                :searchTerm is null
+                or :searchTerm = ''
+                or lower(p.title) like lower(concat('%', :searchTerm, '%'))
+                or lower(coalesce(p.excerpt, '')) like lower(concat('%', :searchTerm, '%'))
+                or lower(p.markdown_content) like lower(concat('%', :searchTerm, '%'))
+              )
+            """,
+            nativeQuery = true)
+    Page<Post> searchPublishedPosts(
+            @Param("searchTerm") String searchTerm,
+            @Param("tagSlug") String tagSlug,
+            Pageable pageable
+    );
+
     boolean existsBySlug(String slug);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)

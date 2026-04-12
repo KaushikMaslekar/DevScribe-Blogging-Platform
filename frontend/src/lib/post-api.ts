@@ -16,6 +16,7 @@ export async function listPosts(params?: {
   mine?: boolean;
   status?: PostStatus;
   tag?: string;
+  query?: string;
 }): Promise<PageResponse<PostSummary>> {
   const { data } = await apiClient.get<PageResponse<PostSummary>>("/posts", {
     params,

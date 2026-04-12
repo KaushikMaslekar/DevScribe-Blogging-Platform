@@ -1,25 +1,43 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ArrowRight, PenSquare } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, PenSquare, Search } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { listPosts } from "@/lib/post-api";
 import { listTags } from "@/lib/tag-api";
 
+const SEARCH_DEBOUNCE_MS = 350;
+
 export default function Home() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const tagsQuery = useQuery({
     queryKey: ["tags"],
     queryFn: listTags,
   });
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
   const publishedPostsQuery = useQuery({
-    queryKey: ["posts", "published", activeTag],
-    queryFn: () => listPosts({ page: 0, size: 6, tag: activeTag ?? undefined }),
+    queryKey: ["posts", "published", activeTag, debouncedSearch],
+    queryFn: () =>
+      listPosts({
+        page: 0,
+        size: 6,
+        tag: activeTag ?? undefined,
+        query: debouncedSearch || undefined,
+      }),
   });
 
   return (
@@ -53,6 +71,34 @@ export default function Home() {
           secure authentication, markdown-first writing, autosave reliability,
           and collaborative editing.
         </motion.p>
+        <div className="mt-10 max-w-2xl rounded-2xl border bg-card/80 p-4 shadow-sm backdrop-blur">
+          <label className="mb-2 flex items-center gap-2 text-sm font-medium">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            Search published posts
+          </label>
+          <input
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Search title, excerpt, or content..."
+            className="w-full rounded-xl border bg-background px-4 py-3 text-sm outline-none ring-ring/40 focus:ring-2"
+          />
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>
+              {debouncedSearch
+                ? `Searching for \"${debouncedSearch}\"`
+                : "Showing the latest published posts"}
+            </span>
+            {debouncedSearch ? (
+              <button
+                type="button"
+                className="underline-offset-4 hover:underline"
+                onClick={() => setSearchInput("")}
+              >
+                Clear search
+              </button>
+            ) : null}
+          </div>
+        </div>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -115,7 +161,9 @@ export default function Home() {
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               {publishedPostsQuery.data.content.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No published posts yet.
+                  {debouncedSearch || activeTag
+                    ? "No posts matched your search."
+                    : "No published posts yet."}
                 </p>
               ) : (
                 publishedPostsQuery.data.content.map((post) => (
