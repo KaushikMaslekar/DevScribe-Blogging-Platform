@@ -29,6 +29,9 @@ import com.devscribe.entity.Post;
 import com.devscribe.entity.PostStatus;
 import com.devscribe.entity.Tag;
 import com.devscribe.entity.User;
+import com.devscribe.realtime.PostRealtimeEvent;
+import com.devscribe.realtime.PostRealtimeEventType;
+import com.devscribe.realtime.PostRealtimePublisher;
 import com.devscribe.repository.PostRepository;
 import com.devscribe.repository.UserRepository;
 import com.devscribe.util.SlugUtil;
@@ -42,6 +45,7 @@ public class PostService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final TagService tagService;
+    private final PostRealtimePublisher postRealtimePublisher;
 
     @Transactional(readOnly = true)
     public Page<PostSummaryResponse> getPosts(int page, int size, boolean mine, PostStatus status, String tag) {
@@ -108,7 +112,9 @@ public class PostService {
 
         post.setTags(resolveTags(request.tags()));
 
-        return toDetail(postRepository.save(post));
+        Post saved = postRepository.save(post);
+        postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.CREATED));
+        return toDetail(saved);
     }
 
     @Transactional
@@ -135,6 +141,7 @@ public class PostService {
 
             post.setTags(resolveTags(request.tags()));
             Post saved = postRepository.save(post);
+            postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.UPDATED));
             return new AutosavePostResponse(
                     saved.getId(),
                     saved.getSlug(),
@@ -177,6 +184,7 @@ public class PostService {
         post.setAutosaveRevision(incomingRevision);
 
         Post saved = postRepository.save(post);
+        postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.UPDATED));
         return new AutosavePostResponse(
                 saved.getId(),
                 saved.getSlug(),
@@ -200,7 +208,9 @@ public class PostService {
         post.setMarkdownContent(request.markdownContent());
         post.setTags(resolveTags(request.tags()));
 
-        return toDetail(postRepository.save(post));
+        Post saved = postRepository.save(post);
+        postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.UPDATED));
+        return toDetail(saved);
     }
 
     @Transactional
@@ -210,7 +220,9 @@ public class PostService {
         ensureOwnership(post);
 
         post.setTags(resolveTags(tags));
-        return toDetail(postRepository.save(post));
+        Post saved = postRepository.save(post);
+        postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.UPDATED));
+        return toDetail(saved);
     }
 
     @Transactional
@@ -219,6 +231,7 @@ public class PostService {
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Post not found"));
         ensureOwnership(post);
 
+        postRealtimePublisher.publishPostEvent(toRealtimeEvent(post, PostRealtimeEventType.DELETED));
         postRepository.deleteById(id);
     }
 
@@ -233,7 +246,9 @@ public class PostService {
             post.setPublishedAt(OffsetDateTime.now());
         }
 
-        return toDetail(postRepository.save(post));
+        Post saved = postRepository.save(post);
+        postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.PUBLISHED));
+        return toDetail(saved);
     }
 
     private void ensureOwnership(Post post) {
@@ -338,5 +353,15 @@ public class PostService {
                 .map(Tag::getSlug)
                 .sorted(Comparator.naturalOrder())
                 .toList();
+    }
+
+    private PostRealtimeEvent toRealtimeEvent(Post post, PostRealtimeEventType eventType) {
+        return new PostRealtimeEvent(
+                post.getId(),
+                post.getSlug(),
+                post.getStatus(),
+                eventType,
+                OffsetDateTime.now()
+        );
     }
 }
