@@ -31,6 +31,7 @@ public class SecurityConfig {
     private final CorrelationIdFilter correlationIdFilter;
     private final RateLimitingFilter rateLimitingFilter;
     private final SecurityHeadersFilter securityHeadersFilter;
+    private final RequestLoggingFilter requestLoggingFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -45,6 +46,7 @@ public class SecurityConfig {
                 .maxAgeInSeconds(31536000)
                 .includeSubDomains(true)))
                 .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/health/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/auth/register", "/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
                 .requestMatchers(HttpMethod.GET, "/posts", "/posts/*").permitAll()
@@ -54,6 +56,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/users/**").authenticated()
                 .anyRequest().permitAll()
                 )
+                .addFilterBefore(requestLoggingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(securityHeadersFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
