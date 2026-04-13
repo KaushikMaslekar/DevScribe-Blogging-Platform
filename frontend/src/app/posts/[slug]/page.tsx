@@ -20,7 +20,7 @@ import {
   unbookmarkPost,
 } from "@/lib/post-api";
 import { followUser, unfollowUser } from "@/lib/user-api";
-import { markdownToHtml } from "@/lib/markdown";
+import { renderMarkdown } from "@/lib/markdown";
 import { getAccessToken } from "@/lib/auth-storage";
 import { Button } from "@/components/ui/button";
 
@@ -85,9 +85,11 @@ export default function PostDetailPage() {
   });
 
   const canInteract = Boolean(getAccessToken());
-  const renderedContent = useMemo(
+  const renderedPost = useMemo(
     () =>
-      postQuery.data ? markdownToHtml(postQuery.data.markdownContent) : "",
+      postQuery.data
+        ? renderMarkdown(postQuery.data.markdownContent)
+        : { html: "", toc: [], readingTimeMinutes: 1 },
     [postQuery.data],
   );
 
@@ -220,6 +222,10 @@ export default function PostDetailPage() {
                 {postQuery.data.likesCount === 1 ? "like" : "likes"}
               </div>
 
+              <div className="inline-flex items-center rounded-full border bg-background/80 px-3 py-2 text-xs text-muted-foreground">
+                {renderedPost.readingTimeMinutes} min read
+              </div>
+
               {!canInteract ? (
                 <span className="text-xs text-muted-foreground">
                   Sign in to interact
@@ -242,17 +248,40 @@ export default function PostDetailPage() {
 
             <div className="mt-6 rounded-2xl border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
               <ShieldCheck className="mr-2 inline h-4 w-4" />
-              Markdown content is rendered safely with live caching for faster
-              reads.
+              Markdown content is sanitized before render. Use the table of
+              contents for quick navigation.
             </div>
           </section>
 
-          <section className="rounded-3xl border bg-card/90 p-6 shadow-sm md:p-8">
-            <div
-              className="prose max-w-none prose-headings:tracking-tight prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-code:text-foreground prose-pre:rounded-2xl prose-pre:bg-black prose-pre:text-white"
-              dangerouslySetInnerHTML={{ __html: renderedContent }}
-            />
-          </section>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <section className="rounded-3xl border bg-card/90 p-6 shadow-sm md:p-8">
+              <div
+                className="prose max-w-none prose-headings:tracking-tight prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-code:text-foreground prose-pre:rounded-2xl prose-pre:bg-black prose-pre:text-white"
+                dangerouslySetInnerHTML={{ __html: renderedPost.html }}
+              />
+            </section>
+
+            {renderedPost.toc.length > 0 ? (
+              <aside className="h-fit rounded-3xl border bg-card/85 p-5 text-sm shadow-sm lg:sticky lg:top-24">
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Table of contents
+                </h2>
+                <nav className="space-y-2">
+                  {renderedPost.toc.map((entry) => (
+                    <a
+                      key={entry.id}
+                      href={`#${entry.id}`}
+                      className={`block text-foreground/80 underline-offset-4 hover:text-foreground hover:underline ${
+                        entry.level === 3 ? "pl-3" : ""
+                      }`}
+                    >
+                      {entry.text}
+                    </a>
+                  ))}
+                </nav>
+              </aside>
+            ) : null}
+          </div>
         </article>
       ) : null}
     </main>
