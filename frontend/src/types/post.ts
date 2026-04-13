@@ -6,6 +6,9 @@ export interface PostSummary {
   title: string;
   excerpt: string | null;
   authorUsername: string;
+  seriesSlug: string | null;
+  seriesTitle: string | null;
+  seriesOrder: number | null;
   tags: string[];
   status: PostStatus;
   publishedAt: string | null;
@@ -24,6 +27,9 @@ export interface PostDetail {
   excerpt: string | null;
   markdownContent: string;
   authorUsername: string;
+  seriesSlug: string | null;
+  seriesTitle: string | null;
+  seriesOrder: number | null;
   status: PostStatus;
   publishedAt: string | null;
   scheduledPublishAt: string | null;
@@ -60,6 +66,9 @@ export interface CreatePostRequest {
   title: string;
   excerpt?: string;
   markdownContent: string;
+  seriesTitle?: string;
+  seriesDescription?: string;
+  seriesOrder?: number;
   scheduledPublishAt?: string;
   tags?: string[];
 }
@@ -68,6 +77,9 @@ export interface UpdatePostRequest {
   title: string;
   excerpt?: string;
   markdownContent: string;
+  seriesTitle?: string;
+  seriesDescription?: string;
+  seriesOrder?: number;
   scheduledPublishAt?: string;
   tags?: string[];
 }
@@ -78,6 +90,9 @@ export interface AutosavePostRequest {
   title?: string;
   excerpt?: string;
   markdownContent?: string;
+  seriesTitle?: string;
+  seriesDescription?: string;
+  seriesOrder?: number;
   scheduledPublishAt?: string;
   tags?: string[];
 }
@@ -96,6 +111,8 @@ export interface AutosaveSnapshot {
   title: string;
   excerpt: string | null;
   markdownContent: string;
+  seriesTitle: string | null;
+  seriesOrder: number | null;
   scheduledPublishAt: string | null;
   tags: string[];
   savedAt: string;
@@ -108,6 +125,8 @@ export interface RestoreAutosaveResponse {
   title: string;
   excerpt: string | null;
   markdownContent: string;
+  seriesTitle: string | null;
+  seriesOrder: number | null;
   scheduledPublishAt: string | null;
   tags: string[];
   restoredAt: string;

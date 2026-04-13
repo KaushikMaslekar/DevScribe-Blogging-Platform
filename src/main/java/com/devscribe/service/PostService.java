@@ -42,6 +42,7 @@ import com.devscribe.entity.Post;
 import com.devscribe.entity.PostAutosaveSnapshot;
 import com.devscribe.entity.PostBookmark;
 import com.devscribe.entity.PostLike;
+import com.devscribe.entity.PostSeries;
 import com.devscribe.entity.PostStatus;
 import com.devscribe.entity.Tag;
 import com.devscribe.entity.User;
@@ -52,6 +53,7 @@ import com.devscribe.repository.PostAutosaveSnapshotRepository;
 import com.devscribe.repository.PostBookmarkRepository;
 import com.devscribe.repository.PostLikeRepository;
 import com.devscribe.repository.PostRepository;
+import com.devscribe.repository.PostSeriesRepository;
 import com.devscribe.repository.UserFollowRepository;
 import com.devscribe.repository.UserRepository;
 import com.devscribe.util.SlugUtil;
@@ -65,6 +67,7 @@ public class PostService {
     private static final int MAX_AUTOSAVE_SNAPSHOTS = 50;
 
     private final PostRepository postRepository;
+    private final PostSeriesRepository postSeriesRepository;
     private final PostAutosaveSnapshotRepository postAutosaveSnapshotRepository;
     private final PostBookmarkRepository postBookmarkRepository;
     private final PostLikeRepository postLikeRepository;
@@ -253,6 +256,9 @@ public class PostService {
                 .build();
 
         post.setTags(resolveTags(request.tags()));
+        post.setSeries(resolveSeries(currentUser, request.seriesTitle(), request.seriesDescription()));
+        post.setSeriesOrder(normalizeSeriesOrder(request.seriesOrder()));
+        post.setScheduledPublishAt(request.scheduledPublishAt());
 
         Post saved = postRepository.save(post);
         postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.CREATED));
@@ -288,6 +294,9 @@ public class PostService {
                     .build();
 
             post.setTags(resolveTags(request.tags()));
+            post.setSeries(resolveSeries(currentUser, request.seriesTitle(), request.seriesDescription()));
+            post.setSeriesOrder(normalizeSeriesOrder(request.seriesOrder()));
+            post.setScheduledPublishAt(request.scheduledPublishAt());
             Post saved = postRepository.save(post);
             saveAutosaveSnapshot(saved);
             postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.UPDATED));
@@ -330,6 +339,9 @@ public class PostService {
         post.setExcerpt(request.excerpt());
         post.setMarkdownContent(normalizeAutosaveMarkdown(request.markdownContent()));
         post.setTags(resolveTags(request.tags()));
+        post.setSeries(resolveSeries(currentUser, request.seriesTitle(), request.seriesDescription()));
+        post.setSeriesOrder(normalizeSeriesOrder(request.seriesOrder()));
+        post.setScheduledPublishAt(request.scheduledPublishAt());
         post.setAutosaveRevision(incomingRevision);
 
         Post saved = postRepository.save(post);
@@ -355,9 +367,13 @@ public class PostService {
             post.setTitle(request.title().trim());
             post.setSlug(createUniqueSlug(request.title(), post.getId()));
         }
+        User currentUser = getCurrentUser();
         post.setExcerpt(request.excerpt());
         post.setMarkdownContent(request.markdownContent());
         post.setTags(resolveTags(request.tags()));
+        post.setSeries(resolveSeries(currentUser, request.seriesTitle(), request.seriesDescription()));
+        post.setSeriesOrder(normalizeSeriesOrder(request.seriesOrder()));
+        post.setScheduledPublishAt(request.scheduledPublishAt());
 
         Post saved = postRepository.save(post);
         postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.UPDATED));
@@ -411,6 +427,7 @@ public class PostService {
         if (post.getPublishedAt() == null) {
             post.setPublishedAt(OffsetDateTime.now());
         }
+        post.setScheduledPublishAt(null);
 
         Post saved = postRepository.save(post);
         postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.PUBLISHED));
@@ -478,6 +495,9 @@ public class PostService {
         post.setSlug(createUniqueSlug(post.getTitle(), post.getId()));
         post.setExcerpt(snapshot.getExcerpt());
         post.setMarkdownContent(normalizeAutosaveMarkdown(snapshot.getMarkdownContent()));
+        post.setSeries(resolveSeries(getCurrentUser(), snapshot.getSeriesTitle(), null));
+        post.setSeriesOrder(normalizeSeriesOrder(snapshot.getSeriesOrder()));
+        post.setScheduledPublishAt(snapshot.getScheduledPublishAt());
         post.setTags(resolveTags(parseTagsCsv(snapshot.getTagsCsv())));
         post.setAutosaveRevision(Math.max(snapshot.getRevision() + 1, post.getAutosaveRevision() + 1));
 
@@ -492,6 +512,9 @@ public class PostService {
                 saved.getTitle(),
                 saved.getExcerpt(),
                 saved.getMarkdownContent(),
+                saved.getSeries() != null ? saved.getSeries().getTitle() : null,
+                saved.getSeriesOrder(),
+                saved.getScheduledPublishAt(),
                 toTagSlugs(saved),
                 saved.getUpdatedAt()
         );
@@ -549,6 +572,49 @@ public class PostService {
         return markdownContent;
     }
 
+    private Integer normalizeSeriesOrder(Integer seriesOrder) {
+        if (seriesOrder == null || seriesOrder <= 0) {
+            return null;
+        }
+        return seriesOrder;
+    }
+
+    private PostSeries resolveSeries(User author, String seriesTitle, String seriesDescription) {
+        if (seriesTitle == null || seriesTitle.isBlank()) {
+            return null;
+        }
+
+        String normalizedTitle = seriesTitle.trim();
+        String baseSlug = SlugUtil.toSlug(normalizedTitle);
+        PostSeries series = postSeriesRepository.findByAuthor_IdAndSlug(author.getId(), baseSlug)
+                .orElseGet(() -> PostSeries.builder()
+                .author(author)
+                .slug(createUniqueSeriesSlug(author.getId(), normalizedTitle))
+                .build());
+
+        series.setTitle(normalizedTitle);
+        if (seriesDescription != null) {
+            series.setDescription(seriesDescription.isBlank() ? null : seriesDescription.trim());
+        }
+        return postSeriesRepository.save(series);
+    }
+
+    private String createUniqueSeriesSlug(Long authorId, String title) {
+        String baseSlug = SlugUtil.toSlug(title);
+        String slug = baseSlug;
+        int suffix = 1;
+
+        while (true) {
+            PostSeries existing = postSeriesRepository.findByAuthor_IdAndSlug(authorId, slug).orElse(null);
+            if (existing == null) {
+                return slug;
+            }
+
+            suffix += 1;
+            slug = baseSlug + "-" + suffix;
+        }
+    }
+
     private AutosaveSnapshotResponse toAutosaveSnapshotResponse(PostAutosaveSnapshot snapshot) {
         return new AutosaveSnapshotResponse(
                 snapshot.getId(),
@@ -556,6 +622,8 @@ public class PostService {
                 snapshot.getTitle(),
                 snapshot.getExcerpt(),
                 snapshot.getMarkdownContent(),
+                snapshot.getSeriesTitle(),
+                snapshot.getSeriesOrder(),
                 snapshot.getScheduledPublishAt(),
                 parseTagsCsv(snapshot.getTagsCsv()),
                 snapshot.getCreatedAt()
@@ -569,6 +637,8 @@ public class PostService {
                 .title(post.getTitle())
                 .excerpt(post.getExcerpt())
                 .markdownContent(post.getMarkdownContent())
+                .seriesTitle(post.getSeries() != null ? post.getSeries().getTitle() : null)
+                .seriesOrder(post.getSeriesOrder())
                 .scheduledPublishAt(post.getScheduledPublishAt())
                 .tagsCsv(String.join(",", toTagSlugs(post)))
                 .build();
@@ -602,6 +672,9 @@ public class PostService {
                 post.getTitle(),
                 post.getExcerpt(),
                 post.getAuthor().getUsername(),
+                post.getSeries() != null ? post.getSeries().getSlug() : null,
+                post.getSeries() != null ? post.getSeries().getTitle() : null,
+                post.getSeriesOrder(),
                 toTagSlugs(post),
                 post.getStatus(),
                 post.getPublishedAt(),
@@ -628,6 +701,9 @@ public class PostService {
                 post.getExcerpt(),
                 post.getMarkdownContent(),
                 post.getAuthor().getUsername(),
+                post.getSeries() != null ? post.getSeries().getSlug() : null,
+                post.getSeries() != null ? post.getSeries().getTitle() : null,
+                post.getSeriesOrder(),
                 post.getStatus(),
                 post.getPublishedAt(),
                 post.getScheduledPublishAt(),

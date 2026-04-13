@@ -3,6 +3,7 @@ package com.devscribe.entity;
 import java.time.OffsetDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -25,42 +26,31 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "post_autosave_snapshots")
-public class PostAutosaveSnapshot {
+@Table(name = "post_series")
+public class PostSeries {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "post_id", nullable = false)
-    private Post post;
+    @JoinColumn(name = "author_id", nullable = false)
+    private User author;
 
-    @Column(nullable = false)
-    private Long revision;
+    @Column(nullable = false, length = 255)
+    private String slug;
 
     @Column(nullable = false, length = 255)
     private String title;
 
     @Column(columnDefinition = "TEXT")
-    private String excerpt;
-
-    @Column(name = "markdown_content", nullable = false, columnDefinition = "TEXT")
-    private String markdownContent;
-
-    @Column(name = "scheduled_publish_at")
-    private OffsetDateTime scheduledPublishAt;
-
-    @Column(name = "series_title", length = 255)
-    private String seriesTitle;
-
-    @Column(name = "series_order")
-    private Integer seriesOrder;
-
-    @Column(name = "tags_csv", columnDefinition = "TEXT")
-    private String tagsCsv;
+    private String description;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private OffsetDateTime updatedAt;
 }

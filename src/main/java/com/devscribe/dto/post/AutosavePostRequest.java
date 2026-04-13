@@ -5,6 +5,7 @@ import java.util.List;
 
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
@@ -18,6 +19,12 @@ public record AutosavePostRequest(
         @Size(max = 1000)
         String excerpt,
         String markdownContent,
+        @Size(max = 255)
+        String seriesTitle,
+        @Size(max = 1000)
+        String seriesDescription,
+        @Positive
+        Integer seriesOrder,
         @FutureOrPresent
         OffsetDateTime scheduledPublishAt,
         List<@Size(min = 1, max = 80) String> tags
