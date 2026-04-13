@@ -51,12 +51,6 @@ public class PostAutosaveSnapshot {
     @Column(name = "scheduled_publish_at")
     private OffsetDateTime scheduledPublishAt;
 
-    @Column(name = "series_title", length = 255)
-    private String seriesTitle;
-
-    @Column(name = "series_order")
-    private Integer seriesOrder;
-
     @Column(name = "tags_csv", columnDefinition = "TEXT")
     private String tagsCsv;
 

@@ -63,8 +63,8 @@ public class SecurityConfig {
                 .addFilterBefore(requestLoggingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(securityHeadersFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(rateLimitingFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

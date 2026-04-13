@@ -4,12 +4,9 @@ import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -39,17 +36,17 @@ import com.devscribe.dto.post.PostBookmarkResponse;
 import com.devscribe.dto.post.PostDetailResponse;
 import com.devscribe.dto.post.PostLikeResponse;
 import com.devscribe.dto.post.PostSummaryResponse;
-import com.devscribe.dto.post.PostTocItemResponse;
 import com.devscribe.dto.post.RestoreAutosaveResponse;
+import com.devscribe.dto.post.TrashPostResponse;
 import com.devscribe.dto.post.UpdatePostRequest;
 import com.devscribe.entity.Post;
 import com.devscribe.entity.PostAutosaveSnapshot;
 import com.devscribe.entity.PostBookmark;
 import com.devscribe.entity.PostLike;
-import com.devscribe.entity.PostSeries;
 import com.devscribe.entity.PostStatus;
 import com.devscribe.entity.Tag;
 import com.devscribe.entity.User;
+import com.devscribe.entity.UserRole;
 import com.devscribe.realtime.PostRealtimeEvent;
 import com.devscribe.realtime.PostRealtimeEventType;
 import com.devscribe.realtime.PostRealtimePublisher;
@@ -57,7 +54,6 @@ import com.devscribe.repository.PostAutosaveSnapshotRepository;
 import com.devscribe.repository.PostBookmarkRepository;
 import com.devscribe.repository.PostLikeRepository;
 import com.devscribe.repository.PostRepository;
-import com.devscribe.repository.PostSeriesRepository;
 import com.devscribe.repository.UserFollowRepository;
 import com.devscribe.repository.UserRepository;
 import com.devscribe.util.SlugUtil;
@@ -69,17 +65,15 @@ import lombok.RequiredArgsConstructor;
 public class PostService {
 
     private static final int MAX_AUTOSAVE_SNAPSHOTS = 50;
-    private static final int READING_WORDS_PER_MINUTE = 200;
-    private static final Pattern MARKDOWN_TOKEN_PATTERN = Pattern.compile("[`*_>#\\-]+|\\[[^]]*]\\([^)]*\\)");
 
     private final PostRepository postRepository;
-    private final PostSeriesRepository postSeriesRepository;
     private final PostAutosaveSnapshotRepository postAutosaveSnapshotRepository;
     private final PostBookmarkRepository postBookmarkRepository;
     private final PostLikeRepository postLikeRepository;
     private final UserFollowRepository userFollowRepository;
     private final UserRepository userRepository;
     private final TagService tagService;
+    private final AuditLogService auditLogService;
     private final CacheManager cacheManager;
     private final PostRealtimePublisher postRealtimePublisher;
 
@@ -247,6 +241,22 @@ public class PostService {
         return new PageImpl<>(content, pageable, bookmarkPage.getTotalElements());
     }
 
+    @Transactional(readOnly = true)
+    public Page<TrashPostResponse> getTrash(int page, int size) {
+        User currentUser = getCurrentUser();
+        Pageable pageable = PageRequest.of(page, Math.min(size, 50));
+
+        Page<Post> deletedPosts = postRepository.findDeletedByAuthorId(currentUser.getId(), pageable);
+        return deletedPosts.map(post -> new TrashPostResponse(
+                post.getId(),
+                post.getSlug(),
+                post.getTitle(),
+                post.getDeletedAt(),
+                post.getDeletedBy() != null ? post.getDeletedBy().getUsername() : null,
+                post.getUpdatedAt()
+        ));
+    }
+
     @Transactional
     public PostDetailResponse create(CreatePostRequest request) {
         User currentUser = getCurrentUser();
@@ -262,12 +272,16 @@ public class PostService {
                 .build();
 
         post.setTags(resolveTags(request.tags()));
-        post.setSeries(resolveSeries(currentUser, request.seriesTitle(), request.seriesDescription()));
-        post.setSeriesOrder(normalizeSeriesOrder(request.seriesOrder()));
-        post.setScheduledPublishAt(request.scheduledPublishAt());
 
         Post saved = postRepository.save(post);
         postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.CREATED));
+        auditLogService.log(
+                currentUser,
+                "POST_CREATED",
+                "POST",
+                String.valueOf(saved.getId()),
+                "slug=" + saved.getSlug()
+        );
         return toDetail(
                 saved,
                 postLikeRepository.countByPost_Id(saved.getId()),
@@ -300,9 +314,6 @@ public class PostService {
                     .build();
 
             post.setTags(resolveTags(request.tags()));
-            post.setSeries(resolveSeries(currentUser, request.seriesTitle(), request.seriesDescription()));
-            post.setSeriesOrder(normalizeSeriesOrder(request.seriesOrder()));
-            post.setScheduledPublishAt(request.scheduledPublishAt());
             Post saved = postRepository.save(post);
             saveAutosaveSnapshot(saved);
             postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.UPDATED));
@@ -345,9 +356,6 @@ public class PostService {
         post.setExcerpt(request.excerpt());
         post.setMarkdownContent(normalizeAutosaveMarkdown(request.markdownContent()));
         post.setTags(resolveTags(request.tags()));
-        post.setSeries(resolveSeries(currentUser, request.seriesTitle(), request.seriesDescription()));
-        post.setSeriesOrder(normalizeSeriesOrder(request.seriesOrder()));
-        post.setScheduledPublishAt(request.scheduledPublishAt());
         post.setAutosaveRevision(incomingRevision);
 
         Post saved = postRepository.save(post);
@@ -367,22 +375,25 @@ public class PostService {
     public PostDetailResponse update(@NonNull Long id, UpdatePostRequest request) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Post not found"));
-        ensureOwnership(post);
+        ensureCanManagePost(post);
 
         if (!post.getTitle().equals(request.title().trim())) {
             post.setTitle(request.title().trim());
             post.setSlug(createUniqueSlug(request.title(), post.getId()));
         }
-        User currentUser = getCurrentUser();
         post.setExcerpt(request.excerpt());
         post.setMarkdownContent(request.markdownContent());
         post.setTags(resolveTags(request.tags()));
-        post.setSeries(resolveSeries(currentUser, request.seriesTitle(), request.seriesDescription()));
-        post.setSeriesOrder(normalizeSeriesOrder(request.seriesOrder()));
-        post.setScheduledPublishAt(request.scheduledPublishAt());
 
         Post saved = postRepository.save(post);
         postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.UPDATED));
+        auditLogService.log(
+                getCurrentUser(),
+                "POST_UPDATED",
+                "POST",
+                String.valueOf(saved.getId()),
+                "slug=" + saved.getSlug()
+        );
         return toDetail(
                 saved,
                 postLikeRepository.countByPost_Id(saved.getId()),
@@ -397,11 +408,18 @@ public class PostService {
     public PostDetailResponse updateTags(@NonNull Long id, List<String> tags) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Post not found"));
-        ensureOwnership(post);
+        ensureCanManagePost(post);
 
         post.setTags(resolveTags(tags));
         Post saved = postRepository.save(post);
         postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.UPDATED));
+        auditLogService.log(
+                getCurrentUser(),
+                "POST_TAGS_UPDATED",
+                "POST",
+                String.valueOf(saved.getId()),
+                "tagsCount=" + saved.getTags().size()
+        );
         return toDetail(
                 saved,
                 postLikeRepository.countByPost_Id(saved.getId()),
@@ -416,10 +434,54 @@ public class PostService {
     public void delete(@NonNull Long id) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Post not found"));
-        ensureOwnership(post);
+        User actor = getCurrentUser();
+        if (!post.getAuthor().getId().equals(actor.getId()) && !hasElevatedEditorialRole(actor)) {
+            throw new ResponseStatusException(FORBIDDEN, "You do not have access to this post");
+        }
 
+        post.setDeletedAt(OffsetDateTime.now());
+        post.setDeletedBy(actor);
+        postRepository.save(post);
         postRealtimePublisher.publishPostEvent(toRealtimeEvent(post, PostRealtimeEventType.DELETED));
-        postRepository.deleteById(id);
+        auditLogService.log(
+                actor,
+                "POST_SOFT_DELETED",
+                "POST",
+                String.valueOf(post.getId()),
+                "slug=" + post.getSlug()
+        );
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = {CachingConfig.CACHE_POST_BY_SLUG, CachingConfig.CACHE_PUBLISHED_POSTS}, allEntries = true)
+    public PostDetailResponse restore(@NonNull Long id) {
+        Post post = postRepository.findDeletedById(id)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Deleted post not found"));
+
+        User actor = getCurrentUser();
+        if (!post.getAuthor().getId().equals(actor.getId()) && !hasElevatedEditorialRole(actor)) {
+            throw new ResponseStatusException(FORBIDDEN, "You do not have access to this post");
+        }
+
+        post.setDeletedAt(null);
+        post.setDeletedBy(null);
+        Post saved = postRepository.save(post);
+        postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.UPDATED));
+        auditLogService.log(
+                actor,
+                "POST_RESTORED",
+                "POST",
+                String.valueOf(saved.getId()),
+                "slug=" + saved.getSlug()
+        );
+
+        return toDetail(
+                saved,
+                postLikeRepository.countByPost_Id(saved.getId()),
+                isLikedByCurrentUser(saved.getId()),
+                isBookmarkedByCurrentUser(saved.getId()),
+                isAuthorFollowedByCurrentUser(saved.getAuthor().getId())
+        );
     }
 
     @Transactional
@@ -427,16 +489,22 @@ public class PostService {
     public PostDetailResponse publish(@NonNull Long id) {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Post not found"));
-        ensureOwnership(post);
+        ensureCanManagePost(post);
 
         post.setStatus(PostStatus.PUBLISHED);
         if (post.getPublishedAt() == null) {
             post.setPublishedAt(OffsetDateTime.now());
         }
-        post.setScheduledPublishAt(null);
 
         Post saved = postRepository.save(post);
         postRealtimePublisher.publishPostEvent(toRealtimeEvent(saved, PostRealtimeEventType.PUBLISHED));
+        auditLogService.log(
+                getCurrentUser(),
+                "POST_PUBLISHED",
+                "POST",
+                String.valueOf(saved.getId()),
+                "slug=" + saved.getSlug()
+        );
         return toDetail(
                 saved,
                 postLikeRepository.countByPost_Id(saved.getId()),
@@ -501,9 +569,6 @@ public class PostService {
         post.setSlug(createUniqueSlug(post.getTitle(), post.getId()));
         post.setExcerpt(snapshot.getExcerpt());
         post.setMarkdownContent(normalizeAutosaveMarkdown(snapshot.getMarkdownContent()));
-        post.setSeries(resolveSeries(getCurrentUser(), snapshot.getSeriesTitle(), null));
-        post.setSeriesOrder(normalizeSeriesOrder(snapshot.getSeriesOrder()));
-        post.setScheduledPublishAt(snapshot.getScheduledPublishAt());
         post.setTags(resolveTags(parseTagsCsv(snapshot.getTagsCsv())));
         post.setAutosaveRevision(Math.max(snapshot.getRevision() + 1, post.getAutosaveRevision() + 1));
 
@@ -518,8 +583,6 @@ public class PostService {
                 saved.getTitle(),
                 saved.getExcerpt(),
                 saved.getMarkdownContent(),
-                saved.getSeries() != null ? saved.getSeries().getTitle() : null,
-                saved.getSeriesOrder(),
                 saved.getScheduledPublishAt(),
                 toTagSlugs(saved),
                 saved.getUpdatedAt()
@@ -531,6 +594,23 @@ public class PostService {
         if (!post.getAuthor().getId().equals(currentUser.getId())) {
             throw new ResponseStatusException(FORBIDDEN, "You do not have access to this post");
         }
+    }
+
+    private void ensureCanManagePost(Post post) {
+        User currentUser = getCurrentUser();
+        if (post.getAuthor().getId().equals(currentUser.getId())) {
+            return;
+        }
+
+        if (hasElevatedEditorialRole(currentUser)) {
+            return;
+        }
+
+        throw new ResponseStatusException(FORBIDDEN, "You do not have access to this post");
+    }
+
+    private boolean hasElevatedEditorialRole(User user) {
+        return user.getRole() == UserRole.EDITOR || user.getRole() == UserRole.ADMIN;
     }
 
     private User getCurrentUser() {
@@ -554,7 +634,7 @@ public class PostService {
         int suffix = 1;
 
         while (true) {
-            Post existing = postRepository.findBySlug(slug).orElse(null);
+            Post existing = postRepository.findAnyBySlugIncludingDeleted(slug).orElse(null);
             if (existing == null || (currentPostId != null && existing.getId().equals(currentPostId))) {
                 return slug;
             }
@@ -578,49 +658,6 @@ public class PostService {
         return markdownContent;
     }
 
-    private Integer normalizeSeriesOrder(Integer seriesOrder) {
-        if (seriesOrder == null || seriesOrder <= 0) {
-            return null;
-        }
-        return seriesOrder;
-    }
-
-    private PostSeries resolveSeries(User author, String seriesTitle, String seriesDescription) {
-        if (seriesTitle == null || seriesTitle.isBlank()) {
-            return null;
-        }
-
-        String normalizedTitle = seriesTitle.trim();
-        String baseSlug = SlugUtil.toSlug(normalizedTitle);
-        PostSeries series = postSeriesRepository.findByAuthor_IdAndSlug(author.getId(), baseSlug)
-                .orElseGet(() -> PostSeries.builder()
-                .author(author)
-                .slug(createUniqueSeriesSlug(author.getId(), normalizedTitle))
-                .build());
-
-        series.setTitle(normalizedTitle);
-        if (seriesDescription != null) {
-            series.setDescription(seriesDescription.isBlank() ? null : seriesDescription.trim());
-        }
-        return postSeriesRepository.save(series);
-    }
-
-    private String createUniqueSeriesSlug(Long authorId, String title) {
-        String baseSlug = SlugUtil.toSlug(title);
-        String slug = baseSlug;
-        int suffix = 1;
-
-        while (true) {
-            PostSeries existing = postSeriesRepository.findByAuthor_IdAndSlug(authorId, slug).orElse(null);
-            if (existing == null) {
-                return slug;
-            }
-
-            suffix += 1;
-            slug = baseSlug + "-" + suffix;
-        }
-    }
-
     private AutosaveSnapshotResponse toAutosaveSnapshotResponse(PostAutosaveSnapshot snapshot) {
         return new AutosaveSnapshotResponse(
                 snapshot.getId(),
@@ -628,8 +665,6 @@ public class PostService {
                 snapshot.getTitle(),
                 snapshot.getExcerpt(),
                 snapshot.getMarkdownContent(),
-                snapshot.getSeriesTitle(),
-                snapshot.getSeriesOrder(),
                 snapshot.getScheduledPublishAt(),
                 parseTagsCsv(snapshot.getTagsCsv()),
                 snapshot.getCreatedAt()
@@ -643,8 +678,6 @@ public class PostService {
                 .title(post.getTitle())
                 .excerpt(post.getExcerpt())
                 .markdownContent(post.getMarkdownContent())
-                .seriesTitle(post.getSeries() != null ? post.getSeries().getTitle() : null)
-                .seriesOrder(post.getSeriesOrder())
                 .scheduledPublishAt(post.getScheduledPublishAt())
                 .tagsCsv(String.join(",", toTagSlugs(post)))
                 .build();
@@ -678,15 +711,11 @@ public class PostService {
                 post.getTitle(),
                 post.getExcerpt(),
                 post.getAuthor().getUsername(),
-                post.getSeries() != null ? post.getSeries().getSlug() : null,
-                post.getSeries() != null ? post.getSeries().getTitle() : null,
-                post.getSeriesOrder(),
                 toTagSlugs(post),
                 post.getStatus(),
                 post.getPublishedAt(),
                 post.getScheduledPublishAt(),
                 post.getUpdatedAt(),
-                estimateReadingTimeMinutes(post.getMarkdownContent()),
                 likesByPostId.getOrDefault(post.getId(), 0L),
                 likedPostIds.contains(post.getId()),
                 bookmarkedPostIds.contains(post.getId()),
@@ -708,69 +737,17 @@ public class PostService {
                 post.getExcerpt(),
                 post.getMarkdownContent(),
                 post.getAuthor().getUsername(),
-                post.getSeries() != null ? post.getSeries().getSlug() : null,
-                post.getSeries() != null ? post.getSeries().getTitle() : null,
-                post.getSeriesOrder(),
                 post.getStatus(),
                 post.getPublishedAt(),
                 post.getScheduledPublishAt(),
                 post.getUpdatedAt(),
                 toTagSlugs(post),
-                estimateReadingTimeMinutes(post.getMarkdownContent()),
-                extractTableOfContents(post.getMarkdownContent()),
                 0,
                 likesCount,
                 likedByMe,
                 bookmarkedByMe,
                 authorFollowedByMe
         );
-    }
-
-    private int estimateReadingTimeMinutes(String markdownContent) {
-        if (markdownContent == null || markdownContent.isBlank()) {
-            return 1;
-        }
-
-        String plain = MARKDOWN_TOKEN_PATTERN.matcher(markdownContent).replaceAll(" ");
-        int words = plain.trim().isEmpty() ? 0 : plain.trim().split("\\s+").length;
-        return Math.max(1, (int) Math.ceil(words / (double) READING_WORDS_PER_MINUTE));
-    }
-
-    private List<PostTocItemResponse> extractTableOfContents(String markdownContent) {
-        if (markdownContent == null || markdownContent.isBlank()) {
-            return List.of();
-        }
-
-        Map<String, Integer> usedAnchors = new LinkedHashMap<>();
-        return markdownContent.lines()
-                .map(String::trim)
-                .map(line -> {
-                    int level = 0;
-                    while (level < line.length() && line.charAt(level) == '#') {
-                        level += 1;
-                    }
-
-                    if (level < 2 || level > 4) {
-                        return null;
-                    }
-
-                    if (line.length() <= level || line.charAt(level) != ' ') {
-                        return null;
-                    }
-
-                    String title = line.substring(level + 1).trim();
-                    if (title.isBlank()) {
-                        return null;
-                    }
-
-                    String baseAnchor = SlugUtil.toSlug(title);
-                    int occurrence = usedAnchors.getOrDefault(baseAnchor, 0) + 1;
-                    usedAnchors.put(baseAnchor, occurrence);
-                    String anchor = occurrence == 1 ? baseAnchor : baseAnchor + "-" + occurrence;
-                    return new PostTocItemResponse(anchor, title, level);
-                })
-                .filter(Objects::nonNull)
-                .toList();
     }
 
     private Map<Long, Long> resolveLikesByPostId(List<Post> posts) {

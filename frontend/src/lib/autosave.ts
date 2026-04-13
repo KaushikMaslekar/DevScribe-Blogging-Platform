@@ -11,9 +11,6 @@ export interface DraftSnapshot {
   title: string;
   excerpt: string;
   markdownContent: string;
-  seriesTitle: string;
-  seriesDescription: string;
-  seriesOrderInput: string;
   scheduledPublishAt: string;
   tagsInput: string;
   revision: number;
@@ -25,9 +22,6 @@ interface UseAutosaveDraftParams {
   title: string;
   excerpt: string;
   markdownContent: string;
-  seriesTitle: string;
-  seriesDescription: string;
-  seriesOrder?: number;
   scheduledPublishAt: string;
   tagsInput: string;
   postId: number | null;
@@ -75,9 +69,6 @@ export function useAutosaveDraft({
   title,
   excerpt,
   markdownContent,
-  seriesTitle,
-  seriesDescription,
-  seriesOrder,
   scheduledPublishAt,
   tagsInput,
   postId,
@@ -113,9 +104,6 @@ export function useAutosaveDraft({
         title,
         excerpt,
         markdownContent,
-        seriesTitle,
-        seriesDescription,
-        seriesOrderInput: seriesOrder ? String(seriesOrder) : "",
         scheduledPublishAt,
         tagsInput,
         revision,
@@ -127,17 +115,7 @@ export function useAutosaveDraft({
         JSON.stringify(snapshot),
       );
     },
-    [
-      postId,
-      title,
-      excerpt,
-      markdownContent,
-      seriesTitle,
-      seriesDescription,
-      seriesOrder,
-      scheduledPublishAt,
-      tagsInput,
-    ],
+    [postId, title, excerpt, markdownContent, scheduledPublishAt, tagsInput],
   );
 
   const runAutosave = useCallback(async () => {
@@ -160,9 +138,6 @@ export function useAutosaveDraft({
       title,
       excerpt: excerpt || undefined,
       markdownContent,
-      seriesTitle: seriesTitle || undefined,
-      seriesDescription: seriesDescription || undefined,
-      seriesOrder,
       scheduledPublishAt: scheduledPublishAt || undefined,
       tags: normalizedTags,
     };
@@ -209,9 +184,6 @@ export function useAutosaveDraft({
     title,
     excerpt,
     markdownContent,
-    seriesTitle,
-    seriesDescription,
-    seriesOrder,
     scheduledPublishAt,
     normalizedTags,
     postId,
@@ -246,9 +218,6 @@ export function useAutosaveDraft({
     title,
     excerpt,
     markdownContent,
-    seriesTitle,
-    seriesDescription,
-    seriesOrder,
     scheduledPublishAt,
     tagsInput,
     runAutosave,

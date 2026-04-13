@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.Where;
 
 import java.time.OffsetDateTime;
 import java.util.HashSet;
@@ -16,6 +17,7 @@ import java.util.Set;
 @AllArgsConstructor
 @Entity
 @Table(name = "posts")
+@Where(clause = "deleted_at IS NULL")
 public class Post {
 
     @Id
@@ -56,12 +58,12 @@ public class Post {
     @Column(name = "scheduled_publish_at")
     private OffsetDateTime scheduledPublishAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "series_id")
-    private PostSeries series;
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
 
-    @Column(name = "series_order")
-    private Integer seriesOrder;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deleted_by")
+    private User deletedBy;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

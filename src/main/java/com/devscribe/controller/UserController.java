@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.devscribe.dto.user.UpdateProfileRequest;
+import com.devscribe.dto.user.UpdateUserRoleRequest;
 import com.devscribe.dto.user.UserProfileResponse;
 import com.devscribe.service.UserService;
 
@@ -48,5 +49,13 @@ public class UserController {
     @PutMapping("/me/profile")
     public ResponseEntity<UserProfileResponse> updateMyProfile(@Valid @RequestBody UpdateProfileRequest request) {
         return ResponseEntity.ok(userService.updateMyProfile(request));
+    }
+
+    @PutMapping("/{id}/role")
+    public ResponseEntity<UserProfileResponse> updateRole(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateUserRoleRequest request
+    ) {
+        return ResponseEntity.ok(userService.updateUserRole(id, request.role()));
     }
 }

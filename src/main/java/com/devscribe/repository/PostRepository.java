@@ -18,6 +18,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     Optional<Post> findBySlug(String slug);
 
+    @Query(value = "select * from posts where slug = :slug limit 1", nativeQuery = true)
+    Optional<Post> findAnyBySlugIncludingDeleted(@Param("slug") String slug);
+
     Page<Post> findByStatusOrderByPublishedAtDesc(PostStatus status, Pageable pageable);
 
     Page<Post> findDistinctByStatusAndTags_SlugOrderByPublishedAtDesc(PostStatus status, String tagSlug, Pageable pageable);
@@ -49,12 +52,21 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             Pageable pageable
     );
 
+    @Query(value = "select * from posts p where p.deleted_at is not null and p.author_id = :authorId order by p.deleted_at desc",
+            countQuery = "select count(*) from posts p where p.deleted_at is not null and p.author_id = :authorId",
+            nativeQuery = true)
+    Page<Post> findDeletedByAuthorId(@Param("authorId") Long authorId, Pageable pageable);
+
+    @Query(value = "select * from posts p where p.deleted_at is not null and p.id = :id limit 1", nativeQuery = true)
+    Optional<Post> findDeletedById(@Param("id") Long id);
+
     @Query(value = """
             select distinct p.*
             from posts p
             left join post_tags pt on pt.post_id = p.id
             left join tags t on t.id = pt.tag_id
             where p.status = 'PUBLISHED'
+                                                        and p.deleted_at is null
               and (:tagSlug is null or t.slug = :tagSlug)
               and (
                 :searchTerm is null
@@ -71,6 +83,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             left join post_tags pt on pt.post_id = p.id
             left join tags t on t.id = pt.tag_id
             where p.status = 'PUBLISHED'
+                                                        and p.deleted_at is null
               and (:tagSlug is null or t.slug = :tagSlug)
               and (
                 :searchTerm is null

@@ -3,7 +3,6 @@ package com.devscribe.entity;
 import java.time.OffsetDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -26,31 +25,30 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "post_series")
-public class PostSeries {
+@Table(name = "audit_logs")
+public class AuditLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "author_id", nullable = false)
-    private User author;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "actor_user_id")
+    private User actor;
 
-    @Column(nullable = false, length = 255)
-    private String slug;
+    @Column(nullable = false, length = 80)
+    private String action;
 
-    @Column(nullable = false, length = 255)
-    private String title;
+    @Column(name = "entity_type", nullable = false, length = 80)
+    private String entityType;
+
+    @Column(name = "entity_id", length = 120)
+    private String entityId;
 
     @Column(columnDefinition = "TEXT")
-    private String description;
+    private String details;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
-
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
 }

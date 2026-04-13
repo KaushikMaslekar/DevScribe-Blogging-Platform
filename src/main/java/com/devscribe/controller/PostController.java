@@ -24,6 +24,7 @@ import com.devscribe.dto.post.PostDetailResponse;
 import com.devscribe.dto.post.PostLikeResponse;
 import com.devscribe.dto.post.PostSummaryResponse;
 import com.devscribe.dto.post.RestoreAutosaveResponse;
+import com.devscribe.dto.post.TrashPostResponse;
 import com.devscribe.dto.post.UpdatePostRequest;
 import com.devscribe.dto.post.UpdatePostTagsRequest;
 import com.devscribe.entity.PostStatus;
@@ -68,6 +69,14 @@ public class PostController {
         return ResponseEntity.ok(postService.getBookmarkedPosts(page, size));
     }
 
+    @GetMapping("/trash")
+    public ResponseEntity<Page<TrashPostResponse>> trash(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(postService.getTrash(page, size));
+    }
+
     @GetMapping("/{slug}")
     public ResponseEntity<PostDetailResponse> getBySlug(@PathVariable String slug) {
         return ResponseEntity.ok(postService.getBySlug(slug));
@@ -108,6 +117,11 @@ public class PostController {
     public ResponseEntity<Void> delete(@PathVariable @NonNull Long id) {
         postService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<PostDetailResponse> restore(@PathVariable @NonNull Long id) {
+        return ResponseEntity.ok(postService.restore(id));
     }
 
     @PostMapping("/{id}/publish")

@@ -85,29 +85,6 @@ export default function PostDetailPage() {
   });
 
   const canInteract = Boolean(getAccessToken());
-
-  const renderedContentWithAnchors = useMemo(() => {
-    if (!postQuery.data) {
-      return "";
-    }
-
-    const html = markdownToHtml(postQuery.data.markdownContent);
-    if (!postQuery.data.tableOfContents.length) {
-      return html;
-    }
-
-    let tocIndex = 0;
-    return html.replace(/<h([2-4])>/g, (match) => {
-      const tocItem = postQuery.data?.tableOfContents[tocIndex];
-      if (!tocItem) {
-        return match;
-      }
-
-      tocIndex += 1;
-      return `<h${tocItem.level} id="${tocItem.anchor}">`;
-    });
-  }, [postQuery.data]);
-
   const renderedContent = useMemo(
     () =>
       postQuery.data ? markdownToHtml(postQuery.data.markdownContent) : "",
@@ -152,17 +129,6 @@ export default function PostDetailPage() {
                 {postQuery.data.excerpt}
               </p>
             ) : null}
-
-            <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span className="rounded-full border bg-background/80 px-3 py-1">
-                {postQuery.data.readingTimeMinutes} min read
-              </span>
-              {postQuery.data.tableOfContents.length > 0 ? (
-                <span className="rounded-full border bg-background/80 px-3 py-1">
-                  {postQuery.data.tableOfContents.length} sections
-                </span>
-              ) : null}
-            </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Button
@@ -281,33 +247,11 @@ export default function PostDetailPage() {
             </div>
           </section>
 
-          <section className="grid gap-6 lg:grid-cols-[1fr_280px]">
-            <div className="rounded-3xl border bg-card/90 p-6 shadow-sm md:p-8">
-              <div
-                className="prose max-w-none prose-headings:tracking-tight prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-code:text-foreground prose-pre:rounded-2xl prose-pre:bg-black prose-pre:text-white"
-                dangerouslySetInnerHTML={{ __html: renderedContentWithAnchors || renderedContent }}
-              />
-            </div>
-
-            {postQuery.data.tableOfContents.length > 0 ? (
-              <aside className="h-fit rounded-3xl border bg-card/90 p-4 shadow-sm lg:sticky lg:top-24">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  Table of contents
-                </p>
-                <nav className="mt-3 space-y-2">
-                  {postQuery.data.tableOfContents.map((item) => (
-                    <a
-                      key={item.anchor}
-                      href={`#${item.anchor}`}
-                      className="block text-sm text-muted-foreground transition hover:text-foreground"
-                      style={{ paddingLeft: `${(item.level - 2) * 12}px` }}
-                    >
-                      {item.title}
-                    </a>
-                  ))}
-                </nav>
-              </aside>
-            ) : null}
+          <section className="rounded-3xl border bg-card/90 p-6 shadow-sm md:p-8">
+            <div
+              className="prose max-w-none prose-headings:tracking-tight prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-code:text-foreground prose-pre:rounded-2xl prose-pre:bg-black prose-pre:text-white"
+              dangerouslySetInnerHTML={{ __html: renderedContent }}
+            />
           </section>
         </article>
       ) : null}

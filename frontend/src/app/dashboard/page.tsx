@@ -70,19 +70,6 @@ function toISOStringOrUndefined(value: string): string | undefined {
   return date.toISOString();
 }
 
-function toPositiveIntOrUndefined(value: string): number | undefined {
-  if (!value.trim()) {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return undefined;
-  }
-
-  return parsed;
-}
-
 const RichMarkdownEditor = dynamic(
   () =>
     import("@/components/editor/rich-markdown-editor").then(
@@ -107,15 +94,6 @@ export default function DashboardPage() {
   const [excerpt, setExcerpt] = useState(() => initialSnapshot?.excerpt ?? "");
   const [markdownContent, setMarkdownContent] = useState(
     () => initialSnapshot?.markdownContent ?? "",
-  );
-  const [seriesTitle, setSeriesTitle] = useState(
-    () => initialSnapshot?.seriesTitle ?? "",
-  );
-  const [seriesDescription, setSeriesDescription] = useState(
-    () => initialSnapshot?.seriesDescription ?? "",
-  );
-  const [seriesOrderInput, setSeriesOrderInput] = useState(
-    () => initialSnapshot?.seriesOrderInput ?? "",
   );
   const [scheduledPublishAt, setScheduledPublishAt] = useState(
     () => initialSnapshot?.scheduledPublishAt ?? "",
@@ -186,21 +164,11 @@ export default function DashboardPage() {
       title,
       excerpt,
       markdownContent,
-      seriesTitle,
-      seriesOrder: toPositiveIntOrUndefined(seriesOrderInput) ?? null,
       scheduledPublishAt,
       tags: normalizedTags,
       savedAt: new Date().toISOString(),
     }),
-    [
-      title,
-      excerpt,
-      markdownContent,
-      seriesTitle,
-      seriesOrderInput,
-      scheduledPublishAt,
-      normalizedTags,
-    ],
+    [title, excerpt, markdownContent, scheduledPublishAt, normalizedTags],
   );
 
   const effectiveBaseSnapshotId = useMemo(() => {
@@ -282,12 +250,6 @@ export default function DashboardPage() {
       scheduleChanged:
         normalizeCompareValue(selectedBaseSnapshot.scheduledPublishAt) !==
         normalizeCompareValue(selectedCompareTarget.scheduledPublishAt),
-      seriesChanged:
-        normalizeCompareValue(selectedBaseSnapshot.seriesTitle) !==
-        normalizeCompareValue(selectedCompareTarget.seriesTitle),
-      seriesOrderChanged:
-        (selectedBaseSnapshot.seriesOrder ?? null) !==
-        (selectedCompareTarget.seriesOrder ?? null),
       tagsChanged: tagsBase !== tagsTarget,
       baseTags: tagsBase,
       targetTags: tagsTarget,
@@ -371,9 +333,6 @@ export default function DashboardPage() {
     title,
     excerpt,
     markdownContent,
-    seriesTitle,
-    seriesDescription,
-    seriesOrder: toPositiveIntOrUndefined(seriesOrderInput),
     scheduledPublishAt,
     tagsInput,
   });
@@ -386,11 +345,6 @@ export default function DashboardPage() {
       setTitle(restored.title);
       setExcerpt(restored.excerpt ?? "");
       setMarkdownContent(restored.markdownContent);
-      setSeriesTitle(restored.seriesTitle ?? "");
-      setSeriesDescription("");
-      setSeriesOrderInput(
-        restored.seriesOrder ? String(restored.seriesOrder) : "",
-      );
       setScheduledPublishAt(toDateTimeLocalValue(restored.scheduledPublishAt));
       setTagsInput(restored.tags.join(", "));
       setEditorResetKey((value) => value + 1);
@@ -420,9 +374,6 @@ export default function DashboardPage() {
       title,
       excerpt: excerpt || undefined,
       markdownContent,
-      seriesTitle: seriesTitle || undefined,
-      seriesDescription: seriesDescription || undefined,
-      seriesOrder: toPositiveIntOrUndefined(seriesOrderInput),
       scheduledPublishAt: toISOStringOrUndefined(scheduledPublishAt),
       tags: normalizedTags,
     };
@@ -440,9 +391,6 @@ export default function DashboardPage() {
     setTitle("");
     setExcerpt("");
     setMarkdownContent("");
-    setSeriesTitle("");
-    setSeriesDescription("");
-    setSeriesOrderInput("");
     setScheduledPublishAt("");
     setTagsInput("");
     setCollaboratorIdentifier("");
@@ -737,16 +685,6 @@ export default function DashboardPage() {
                         ({compareMeta.baseMarkdownLength} -&gt;{" "}
                         {compareMeta.targetMarkdownLength} chars)
                       </p>
-                      <p className="rounded-md border border-white/15 px-2 py-1.5 text-white/85">
-                        Series:{" "}
-                        {compareMeta.seriesChanged ? "Changed" : "No change"}
-                      </p>
-                      <p className="rounded-md border border-white/15 px-2 py-1.5 text-white/85">
-                        Series Order:{" "}
-                        {compareMeta.seriesOrderChanged
-                          ? "Changed"
-                          : "No change"}
-                      </p>
                     </div>
 
                     <div className="grid gap-2 md:grid-cols-2">
@@ -809,30 +747,6 @@ export default function DashboardPage() {
           className="w-full rounded-md border border-white/20 bg-black px-3 py-2 text-white outline-none ring-0 focus:border-white"
           value={excerpt}
           onChange={(event) => setExcerpt(event.target.value)}
-        />
-        <label className="mt-4 mb-2 block text-sm">Series Title</label>
-        <input
-          className="w-full rounded-md border border-white/20 bg-black px-3 py-2 text-white outline-none ring-0 focus:border-white"
-          value={seriesTitle}
-          onChange={(event) => setSeriesTitle(event.target.value)}
-          placeholder="Optional series name"
-        />
-        <label className="mt-4 mb-2 block text-sm">Series Description</label>
-        <textarea
-          className="w-full rounded-md border border-white/20 bg-black px-3 py-2 text-white outline-none ring-0 focus:border-white"
-          rows={2}
-          value={seriesDescription}
-          onChange={(event) => setSeriesDescription(event.target.value)}
-          placeholder="Optional series description"
-        />
-        <label className="mt-4 mb-2 block text-sm">Series Order</label>
-        <input
-          type="number"
-          min={1}
-          className="w-full rounded-md border border-white/20 bg-black px-3 py-2 text-white outline-none ring-0 focus:border-white"
-          value={seriesOrderInput}
-          onChange={(event) => setSeriesOrderInput(event.target.value)}
-          placeholder="1"
         />
         <label className="mt-4 mb-2 block text-sm">Schedule Publish</label>
         <input
@@ -1015,12 +929,6 @@ export default function DashboardPage() {
                   <p className="mt-2 text-sm text-white/70">
                     {post.excerpt ?? "No excerpt"}
                   </p>
-                  {post.seriesTitle ? (
-                    <p className="mt-2 text-xs text-white/60">
-                      Series: {post.seriesTitle}
-                      {post.seriesOrder ? ` #${post.seriesOrder}` : ""}
-                    </p>
-                  ) : null}
                   {post.tags.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {post.tags.map((tag) => (

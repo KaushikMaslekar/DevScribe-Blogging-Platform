@@ -29,6 +29,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final UserFollowRepository userFollowRepository;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public void deleteUser(@NonNull Long userId) {
@@ -110,6 +111,26 @@ public class UserService {
         return getProfile(saved.getUsername());
     }
 
+    @Transactional
+    public UserProfileResponse updateUserRole(@NonNull Long userId, @NonNull UserRole role) {
+        enforceAdmin();
+        User actor = getCurrentUser();
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User not found"));
+
+        user.setRole(role);
+        userRepository.save(user);
+        auditLogService.log(
+                actor,
+                "USER_ROLE_UPDATED",
+                "USER",
+                String.valueOf(user.getId()),
+                "newRole=" + role.name()
+        );
+        return getProfile(user.getUsername());
+    }
+
     private void enforceAdminOrSelf(User targetUser) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {
@@ -123,6 +144,20 @@ public class UserService {
 
         if (!isAdmin && !isSelf) {
             throw new ResponseStatusException(FORBIDDEN, "Access denied");
+        }
+    }
+
+    private void enforceAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new ResponseStatusException(FORBIDDEN, "Access denied");
+        }
+
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_" + UserRole.ADMIN.name()));
+
+        if (!isAdmin) {
+            throw new ResponseStatusException(FORBIDDEN, "Admin privileges required");
         }
     }
 

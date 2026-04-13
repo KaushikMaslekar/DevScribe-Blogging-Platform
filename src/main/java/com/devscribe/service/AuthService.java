@@ -31,6 +31,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public AuthTokenPayload register(AuthRegisterRequest request) {
@@ -48,10 +49,17 @@ public class AuthService {
                 .username(request.username().trim())
                 .displayName(request.username().trim())
                 .passwordHash(passwordEncoder.encode(request.password()))
-                .role(UserRole.USER)
+                .role(UserRole.WRITER)
                 .build();
 
         userRepository.save(user);
+        auditLogService.log(
+                user,
+                "AUTH_REGISTER",
+                "USER",
+                String.valueOf(user.getId()),
+                "email=" + user.getEmail()
+        );
         String token = jwtTokenProvider.generateToken(user.getEmail());
         return new AuthTokenPayload(token, jwtTokenProvider.getExpirationMs(), toMeResponse(user));
     }
@@ -71,6 +79,13 @@ public class AuthService {
         User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User not found"));
 
+        auditLogService.log(
+                user,
+                "AUTH_LOGIN",
+                "USER",
+                String.valueOf(user.getId()),
+                "email=" + user.getEmail()
+        );
         String token = jwtTokenProvider.generateToken(user.getEmail());
         return new AuthTokenPayload(token, jwtTokenProvider.getExpirationMs(), toMeResponse(user));
     }

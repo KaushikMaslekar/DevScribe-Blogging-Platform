@@ -9,8 +9,6 @@ public record AutosaveSnapshotResponse(
         String title,
         String excerpt,
         String markdownContent,
-        String seriesTitle,
-        Integer seriesOrder,
         OffsetDateTime scheduledPublishAt,
         List<String> tags,
         OffsetDateTime savedAt

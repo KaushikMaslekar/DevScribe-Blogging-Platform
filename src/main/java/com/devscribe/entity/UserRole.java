@@ -1,6 +1,7 @@
 package com.devscribe.entity;
 
 public enum UserRole {
-    USER,
+    WRITER,
+    EDITOR,
     ADMIN
 }
