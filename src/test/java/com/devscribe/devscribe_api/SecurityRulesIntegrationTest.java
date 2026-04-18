@@ -42,4 +42,18 @@ class SecurityRulesIntegrationTest {
         mockMvc.perform(delete("/users/1"))
                 .andExpect(status().is4xxClientError());
     }
+
+    @Test
+    void listingSeriesWithoutAuthIsRejected() throws Exception {
+        mockMvc.perform(get("/series"))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    void creatingSeriesWithoutAuthIsRejected() throws Exception {
+        mockMvc.perform(post("/series")
+                .contentType("application/json")
+                .content("{\"title\":\"Java Mastery\"}"))
+                .andExpect(status().is4xxClientError());
+    }
 }
