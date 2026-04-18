@@ -7,6 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -51,6 +52,12 @@ class SecurityRulesIntegrationTest {
     }
 
     @Test
+    void listingSeriesPostsWithoutAuthIsRejected() throws Exception {
+        mockMvc.perform(get("/series/1/posts"))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
     void creatingSeriesWithoutAuthIsRejected() throws Exception {
         mockMvc.perform(post("/series")
                 .contentType("application/json")
@@ -63,6 +70,20 @@ class SecurityRulesIntegrationTest {
         mockMvc.perform(post("/series/1/posts")
                 .contentType("application/json")
                 .content("{\"postId\":1}"))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    void detachingSeriesPostWithoutAuthIsRejected() throws Exception {
+        mockMvc.perform(delete("/series/1/posts/1"))
+                .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    void movingSeriesPostWithoutAuthIsRejected() throws Exception {
+        mockMvc.perform(patch("/series/1/posts/1/move")
+                .contentType("application/json")
+                .content("{\"sortOrder\":1}"))
                 .andExpect(status().is4xxClientError());
     }
 

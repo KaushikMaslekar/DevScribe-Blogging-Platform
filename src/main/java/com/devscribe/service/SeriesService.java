@@ -20,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.devscribe.dto.series.AttachSeriesPostRequest;
 import com.devscribe.dto.series.CreateSeriesRequest;
+import com.devscribe.dto.series.MoveSeriesPostRequest;
 import com.devscribe.dto.series.ReorderSeriesPostsRequest;
 import com.devscribe.dto.series.SeriesPostItemResponse;
 import com.devscribe.dto.series.SeriesPostsResponse;
@@ -112,6 +113,38 @@ public class SeriesService {
     }
 
     @Transactional
+    public SeriesPostsResponse detachPost(@NonNull Long seriesId, @NonNull Long postId) {
+        getOwnedSeries(seriesId);
+
+        SeriesPost seriesPost = seriesPostRepository.findBySeries_IdAndPost_Id(seriesId, postId)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Series post not found"));
+        int removedSortOrder = seriesPost.getSortOrder();
+
+        seriesPostRepository.delete(seriesPost);
+        compactSortOrderAfterRemoval(seriesId, removedSortOrder);
+
+        return toSeriesPostsResponse(seriesId);
+    }
+
+    @Transactional
+    public SeriesPostsResponse movePost(@NonNull Long seriesId, @NonNull Long postId, MoveSeriesPostRequest request) {
+        getOwnedSeries(seriesId);
+
+        SeriesPost seriesPost = seriesPostRepository.findBySeries_IdAndPost_Id(seriesId, postId)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Series post not found"));
+
+        Long targetSeriesId = request.targetSeriesId() == null ? seriesId : request.targetSeriesId();
+        if (targetSeriesId.equals(seriesId)) {
+            moveWithinSeries(seriesId, seriesPost, request.sortOrder());
+            return toSeriesPostsResponse(seriesId);
+        }
+
+        Series targetSeries = getOwnedSeries(targetSeriesId);
+        moveAcrossSeries(seriesId, targetSeries, seriesPost, request.sortOrder());
+        return toSeriesPostsResponse(targetSeriesId);
+    }
+
+    @Transactional
     public SeriesPostsResponse reorderPosts(@NonNull Long seriesId, ReorderSeriesPostsRequest request) {
         getOwnedSeries(seriesId);
         List<SeriesPost> currentSeriesPosts = seriesPostRepository.findBySeries_IdOrderBySortOrderAsc(seriesId);
@@ -131,23 +164,89 @@ public class SeriesService {
         }
 
         Set<Long> currentPostIds = currentSeriesPosts.stream()
-                .map(seriesPost -> seriesPost.getPost().getId())
+                .map(currentSeriesPost -> currentSeriesPost.getPost().getId())
                 .collect(Collectors.toSet());
         if (!currentPostIds.equals(uniqueRequestedPostIds)) {
             throw new ResponseStatusException(BAD_REQUEST, "Reorder payload must match current series posts");
         }
 
         Map<Long, SeriesPost> byPostId = currentSeriesPosts.stream()
-                .collect(Collectors.toMap(seriesPost -> seriesPost.getPost().getId(), Function.identity()));
+                .collect(Collectors.toMap(currentSeriesPost -> currentSeriesPost.getPost().getId(), Function.identity()));
 
         for (int i = 0; i < requestedOrder.size(); i += 1) {
-            Long postId = requestedOrder.get(i);
-            SeriesPost seriesPost = byPostId.get(postId);
-            seriesPost.setSortOrder(i + 1);
+            Long requestedPostId = requestedOrder.get(i);
+            SeriesPost currentSeriesPost = byPostId.get(requestedPostId);
+            currentSeriesPost.setSortOrder(i + 1);
         }
         seriesPostRepository.saveAll(currentSeriesPosts);
 
         return toSeriesPostsResponse(seriesId);
+    }
+
+    private void moveWithinSeries(Long seriesId, SeriesPost seriesPost, Integer requestedSortOrder) {
+        List<SeriesPost> currentSeriesPosts = seriesPostRepository.findBySeries_IdOrderBySortOrderAsc(seriesId);
+        int currentSortOrder = seriesPost.getSortOrder();
+        int targetSortOrder = resolveTargetSortOrder(requestedSortOrder, currentSeriesPosts.size());
+
+        if (targetSortOrder == currentSortOrder) {
+            return;
+        }
+
+        for (SeriesPost currentSeriesPost : currentSeriesPosts) {
+            if (currentSeriesPost.getPost().getId().equals(seriesPost.getPost().getId())) {
+                continue;
+            }
+
+            int sortOrder = currentSeriesPost.getSortOrder();
+            if (targetSortOrder < currentSortOrder && sortOrder >= targetSortOrder && sortOrder < currentSortOrder) {
+                currentSeriesPost.setSortOrder(sortOrder + 1);
+            }
+            if (targetSortOrder > currentSortOrder && sortOrder <= targetSortOrder && sortOrder > currentSortOrder) {
+                currentSeriesPost.setSortOrder(sortOrder - 1);
+            }
+        }
+
+        seriesPost.setSortOrder(targetSortOrder);
+        seriesPostRepository.saveAll(currentSeriesPosts);
+    }
+
+    private void moveAcrossSeries(Long sourceSeriesId, Series targetSeries, SeriesPost seriesPost, Integer requestedSortOrder) {
+        Long targetSeriesId = targetSeries.getId();
+        if (seriesPostRepository.findBySeries_IdAndPost_Id(targetSeriesId, seriesPost.getPost().getId()).isPresent()) {
+            throw new ResponseStatusException(BAD_REQUEST, "Post is already attached to target series");
+        }
+
+        int removedSortOrder = seriesPost.getSortOrder();
+        compactSortOrderAfterRemoval(sourceSeriesId, removedSortOrder);
+
+        List<SeriesPost> targetPosts = seriesPostRepository.findBySeries_IdOrderBySortOrderAsc(targetSeriesId);
+        int targetSortOrder = resolveTargetSortOrder(requestedSortOrder, targetPosts.size());
+        for (SeriesPost targetPost : targetPosts) {
+            if (targetPost.getSortOrder() >= targetSortOrder) {
+                targetPost.setSortOrder(targetPost.getSortOrder() + 1);
+            }
+        }
+
+        seriesPost.setSeries(targetSeries);
+        seriesPost.setSortOrder(targetSortOrder);
+        seriesPostRepository.save(seriesPost);
+
+        if (!targetPosts.isEmpty()) {
+            seriesPostRepository.saveAll(targetPosts);
+        }
+    }
+
+    private void compactSortOrderAfterRemoval(Long seriesId, int removedSortOrder) {
+        List<SeriesPost> seriesPosts = seriesPostRepository.findBySeries_IdOrderBySortOrderAsc(seriesId);
+        for (SeriesPost currentSeriesPost : seriesPosts) {
+            if (currentSeriesPost.getSortOrder() > removedSortOrder) {
+                currentSeriesPost.setSortOrder(currentSeriesPost.getSortOrder() - 1);
+            }
+        }
+
+        if (!seriesPosts.isEmpty()) {
+            seriesPostRepository.saveAll(seriesPosts);
+        }
     }
 
     private int resolveTargetSortOrder(Integer requestedSortOrder, int currentSize) {
@@ -201,13 +300,14 @@ public class SeriesService {
     }
 
     private SeriesSummaryResponse toSummary(Series series) {
+        long postsCount = seriesPostRepository.countBySeries_Id(series.getId());
         return new SeriesSummaryResponse(
                 series.getId(),
                 series.getSlug(),
                 series.getTitle(),
                 series.getDescription(),
                 series.getAuthor().getUsername(),
-                0,
+                postsCount,
                 series.getCreatedAt(),
                 series.getUpdatedAt()
         );

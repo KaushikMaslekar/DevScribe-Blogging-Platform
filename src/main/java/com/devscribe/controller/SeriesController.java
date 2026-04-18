@@ -4,7 +4,9 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.devscribe.dto.series.AttachSeriesPostRequest;
 import com.devscribe.dto.series.CreateSeriesRequest;
+import com.devscribe.dto.series.MoveSeriesPostRequest;
 import com.devscribe.dto.series.ReorderSeriesPostsRequest;
 import com.devscribe.dto.series.SeriesPostsResponse;
 import com.devscribe.dto.series.SeriesSummaryResponse;
@@ -50,6 +53,23 @@ public class SeriesController {
             @Valid @RequestBody AttachSeriesPostRequest request
     ) {
         return ResponseEntity.ok(seriesService.attachPost(seriesId, request));
+    }
+
+    @DeleteMapping("/{seriesId}/posts/{postId}")
+    public ResponseEntity<SeriesPostsResponse> detachPost(
+            @PathVariable @NonNull Long seriesId,
+            @PathVariable @NonNull Long postId
+    ) {
+        return ResponseEntity.ok(seriesService.detachPost(seriesId, postId));
+    }
+
+    @PatchMapping("/{seriesId}/posts/{postId}/move")
+    public ResponseEntity<SeriesPostsResponse> movePost(
+            @PathVariable @NonNull Long seriesId,
+            @PathVariable @NonNull Long postId,
+            @Valid @RequestBody MoveSeriesPostRequest request
+    ) {
+        return ResponseEntity.ok(seriesService.movePost(seriesId, postId, request));
     }
 
     @PutMapping("/{seriesId}/posts/reorder")

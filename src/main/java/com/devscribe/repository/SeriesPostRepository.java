@@ -17,7 +17,8 @@ public interface SeriesPostRepository extends JpaRepository<SeriesPost, Long> {
 
     Optional<SeriesPost> findByPost_Id(Long postId);
 
+    long countBySeries_Id(Long seriesId);
+
     @Query("select coalesce(max(sp.sortOrder), 0) from SeriesPost sp where sp.series.id = :seriesId")
     int findMaxSortOrderBySeriesId(@Param("seriesId") Long seriesId);
 }
-
