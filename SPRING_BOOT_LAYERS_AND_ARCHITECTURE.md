@@ -41,6 +41,7 @@ Current examples:
 - `PostController`
 - `TagController`
 - `UserController`
+- `CommentController` *(NEW - Phase 1)*
 
 Responsibilities:
 
@@ -58,6 +59,7 @@ Current examples:
 - `PostService`
 - `TagService`
 - `UserService`
+- `CommentService` *(NEW - Phase 1)*
 
 Responsibilities:
 
@@ -75,6 +77,7 @@ Current examples:
 - `UserRepository`
 - `PostRepository`
 - `TagRepository`
+- `CommentRepository` *(NEW - Phase 1)*
 
 Responsibilities:
 
@@ -93,6 +96,8 @@ Current examples:
 - `Tag`
 - `PostStatus`
 - `UserRole`
+- `Comment` *(NEW - Phase 1)*
+- `CommentStatus` *(NEW - Phase 1)*
 
 Responsibilities:
 
@@ -116,6 +121,10 @@ Current examples:
 - `UpdatePostTagsRequest`
 - `PostSummaryResponse`
 - `PostDetailResponse`
+- `CreateCommentRequest` *(NEW - Phase 1)*
+- `CommentResponse` *(NEW - Phase 1)*
+- `CommentThreadResponse` *(NEW - Phase 1)*
+- `AuthorInfo` *(NEW - Phase 1)*
 
 Responsibilities:
 
@@ -173,6 +182,7 @@ Current persisted tables include:
 - `tags`
 - `post_tags`
 - `view_tracking`
+- `comments` *(NEW - Phase 1)*
 
 Important relationships:
 
@@ -180,6 +190,9 @@ Important relationships:
 - One post belongs to one author.
 - One post can have many tags.
 - One tag can belong to many posts.
+- One post can have many comments (hierarchical tree).
+- One user can author many comments.
+- One comment can have many child replies (parent_comment_id relationship).
 
 ## 5. Backend Modules Implemented So Far
 
@@ -208,6 +221,38 @@ Important relationships:
 - Tag filtering on post lists
 - Tag display in frontend views
 
+### Module 11: Post Likes & Reactions
+
+- `PostLike` entity for user reactions
+- Like/unlike endpoints
+- Likes count display on posts
+
+### Phase 1: Comments System *(COMPLETED - April 23, 2026)*
+
+**Backend:**
+- `Comment` entity with threaded parent/child relationships
+- `CommentStatus` enum (ACTIVE, FLAGGED, DELETED)
+- `CommentRepository` with hierarchical query methods
+- `CommentService` with create/list/delete/flag operations
+- `CommentController` exposing REST endpoints:
+  - `GET /posts/{postId}/comments` - Get paginated comments with nested replies
+  - `GET /posts/{postId}/comments/count` - Get comment count
+  - `POST /posts/{postId}/comments` - Create comment or reply
+  - `DELETE /posts/{postId}/comments/{commentId}` - Delete comment
+  - `POST /posts/{postId}/comments/{commentId}/flag` - Flag for moderation
+- Security rules: read-public, write-authenticated
+- `V13__comments_schema.sql` Flyway migration
+- Integration tests with 7+ test cases
+
+**Frontend:**
+- Comment types and API client (`comment-api.ts`)
+- `CommentComposer` component - form with optimistic submission
+- `CommentItem` component - display with author info, delete/flag actions
+- `CommentSection` container - pagination, threading, reply state management
+- Integration on post detail page (`/posts/[slug]`)
+- Relative timestamps with date-fns
+- Sign-in prompts for unauthenticated users
+
 ## 6. Architecture Notes
 
 - Controllers should stay thin and avoid business logic.
@@ -228,11 +273,24 @@ When adding a new feature, the usual order is:
 6. Add frontend API calls and UI.
 7. Validate with compile/run checks and Postman.
 
-## 8. Next Modules
+## 8. Next Modules & Phases
 
-The next planned backend/frontend work is:
+**Phase 2 (Next Priority): Enhanced Reactions System**
+- Expand from basic "like" to multi-type emoji reactions
+- Reaction type enum (like, love, celebrate, insightful, etc.)
+- Reaction toggle/upsert endpoints
+- Aggregate reaction counts and per-user state
 
+**Phase 3: Series Frontend Navigation**
+- Series breadcrumbs on post detail pages
+- Previous/next post navigation in series
+- Series table of contents
+
+**Future Modules:**
 - Module 5: Rich editor and markdown pipeline
 - Module 6: Autosave reliability layer
 - Module 7: Realtime synchronization
 - Module 8: Collaborative editing
+- Module 9: Advanced search & discovery
+- Module 10: Analytics & engagement
+- Module 11+: Social features, moderation, performance optimization
