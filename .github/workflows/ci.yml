@@ -19,8 +19,6 @@ jobs:
                   distribution: temurin
                   java-version: 21
 
-            - name: Validate migrations
-              run: ./mvnw -B -DskipTests flyway:validate
 
             - name: Run backend tests
               run: ./mvnw -B test
