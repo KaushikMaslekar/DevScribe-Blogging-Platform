@@ -64,6 +64,7 @@ public class CommentIntegrationTest {
                 .email("author@test.com")
                 .passwordHash("hashedpwd")
                 .displayName("Author User")
+                .role(UserRole.WRITER)
                 .build());
 
         commenter = userRepository.save(User.builder()
@@ -71,6 +72,7 @@ public class CommentIntegrationTest {
                 .email("commenter@test.com")
                 .passwordHash("hashedpwd")
                 .displayName("Commenter User")
+                .role(UserRole.WRITER)
                 .build());
 
         // Create post
@@ -256,6 +258,7 @@ public class CommentIntegrationTest {
                 .email("other@test.com")
                 .passwordHash("hashedpwd")
                 .displayName("Other User")
+                .role(UserRole.WRITER)
                 .build());
 
         Comment comment = commentRepository.save(Comment.builder()
