@@ -1,7 +1,7 @@
 # DevScribe - Remaining Features & Roadmap
 
-**Last Updated:** April 21, 2026  
-**Current Status:** Post Series (Modules 1-11) completed. Ready for next phase.
+**Last Updated:** April 23, 2026  
+**Current Status:** Comments System (Phase 1) completed. Ready for Phase 2 (Enhanced Reactions).
 
 ---
 
@@ -34,29 +34,27 @@
 - [x] **Reading Time & Table of Contents** - Auto-calculated reading time and hardened TOC extraction
 - [x] **Dashboard Admin Flows** - Restore from trash, admin flags
 - [x] **Markdown Rendering** - Full hardening with TOC and reading time on post pages
+- [x] **Comments System (Phase 1 - COMPLETE)**
+  - [x] Backend: Comment schema with V13 migration, threaded relationships
+  - [x] Backend: Comment service with create/list/delete/flag operations
+  - [x] Backend: REST API endpoints (/posts/{postId}/comments)
+  - [x] Backend: Security rules (read-public, write-authenticated)
+  - [x] Frontend: CommentComposer component with optimistic form submission
+  - [x] Frontend: CommentItem component with nested display and actions (delete, flag, reply)
+  - [x] Frontend: CommentSection with pagination and recursive reply threading
+  - [x] Frontend: Integration on post detail page (/posts/[slug])
+  - [x] Frontend: Relative timestamps with date-fns
+  - [x] Frontend: Sign-in prompt for unauthenticated users
 
 ---
 
 ## 📋 Remaining Features (Priority Order)
 
-### Phase 1: Comments System (Backend + Frontend)
-- [ ] **Backend Schema & API**
-  - [ ] Comment entity with thread structure (parent/child relationships)
-  - [ ] Comment creation endpoint (nested replies support)
-  - [ ] Comment list endpoint (threaded hierarchical retrieval)
-  - [ ] Comment deletion endpoint (ownership enforcement)
-  - [ ] Comment moderation support (mark as spam/inappropriate)
-  - [ ] Database migrations (Flyway)
-  
-- [ ] **Frontend UI**
-  - [ ] Comment list component (hierarchical rendering)
-  - [ ] Comment composer (reply form)
-  - [ ] Reply expansion/collapsing
-  - [ ] Optimistic comment creation
-  - [ ] Comment deletion with confirmation
-  - [ ] Display on post detail page
+### Phase 1: Comments System ✅ COMPLETED
+- [x] All backend and frontend components delivered (April 23, 2026)
+- [x] Commit: `ca5a0d5` - Frontend UI with composer, list, and nested replies
 
-### Phase 2: Enhanced Reactions System
+### Phase 2: Enhanced Reactions System (NEXT PRIORITY)
 - [ ] **Backend Schema & API**
   - [ ] Reaction type enum (like, love, celebrate, insightful, etc.)
   - [ ] Reaction entity with user + post + type
@@ -123,19 +121,19 @@
 
 ## 🎯 Suggested Next Steps
 
-**Recommended immediate next work:** Comments System (Phase 1)
+**Recommended immediate next work:** Enhanced Reactions System (Phase 2)
 
 **Why:**
-- Comments are foundational for engagement
-- Unblocks threaded discussions, which is critical for developer content
-- Provides natural pathway to reactions enhancement
-- UI patterns are well-established and clear
+- Expands the current basic "like" system to multi-type emoji reactions
+- Lightweight to implement and high user engagement value
+- Can be built quickly now that comments are complete
+- Prepares groundwork for comment reactions (Phase 4)
 
-**Implementation order for Comments:**
-1. Backend: Comment schema + create/list API
-2. Backend: Comment moderation validation
-3. Frontend: Comment list and reply composer
-4. Frontend: Integrate on post detail pages
+**Implementation order for Enhanced Reactions:**
+1. Backend: Reaction type enum and schema
+2. Backend: Reaction upsert and aggregate count APIs
+3. Frontend: Reaction picker UI component
+4. Frontend: Integrate on post detail, feed, and dashboard
 
 ---
 
