@@ -12,8 +12,51 @@ const firaCode = Fira_Code({
 });
 
 export const metadata: Metadata = {
-  title: "DevScribe",
-  description: "Developer-focused blogging platform",
+  title: "DevScribe - Write. Collaborate. Publish.",
+  description:
+    "A developer-focused blogging platform with real-time collaboration, autosave, and markdown support. Share your technical knowledge with the community.",
+  keywords: [
+    "blogging",
+    "developer",
+    "collaboration",
+    "markdown",
+    "technical writing",
+    "publishing",
+  ],
+  authors: [{ name: "DevScribe Team" }],
+  creator: "DevScribe",
+  publisher: "DevScribe",
+  robots: "follow, index",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://devscribe.app",
+    siteName: "DevScribe",
+    title: "DevScribe - Write. Collaborate. Publish.",
+    description:
+      "A developer-focused blogging platform with real-time collaboration, autosave, and markdown support.",
+    images: [
+      {
+        url: "https://devscribe.app/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "DevScribe",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@devscribe",
+    creator: "@devscribe",
+    title: "DevScribe - Write. Collaborate. Publish.",
+    description:
+      "A developer-focused blogging platform with real-time collaboration, autosave, and markdown support.",
+    images: ["https://devscribe.app/og-image.png"],
+  },
+  metadataBase: new URL("https://devscribe.app"),
+  alternates: {
+    canonical: "https://devscribe.app",
+  },
 };
 
 export default function RootLayout({
@@ -23,6 +66,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${firaCode.variable} h-full antialiased`}>
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#000000" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="canonical" href="https://devscribe.app" />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <AppProviders>
           <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">

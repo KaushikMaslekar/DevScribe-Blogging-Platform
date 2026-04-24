@@ -20,7 +20,7 @@ The frontend calls the backend through `/api` endpoints, and the backend persist
 ## 2. Request Flow
 
 Typical request flow:
-
+    
 1. The client sends an HTTP request to a controller.
 2. Spring Security authenticates the request when needed.
 3. The controller validates the request body and forwards it to a service.

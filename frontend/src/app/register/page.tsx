@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { register } from "@/lib/auth-api";
 import { setAccessToken } from "@/lib/auth-storage";
@@ -25,8 +26,29 @@ export default function RegisterPage() {
       const data = await register({ email, username, password });
       setAccessToken(data.accessToken, data.expiresInMs);
       router.replace("/dashboard");
-    } catch {
-      setError("Unable to register. Verify your details and try again.");
+    } catch (err) {
+      let errorMessage = "Unable to register. Verify your details and try again.";
+
+      // Extract error from AxiosError
+      if (err instanceof AxiosError) {
+        // Try to get error message from response data
+        if (typeof err.response?.data === "object" && err.response.data !== null) {
+          const data = err.response.data as Record<string, unknown>;
+          if ("message" in data && typeof data.message === "string") {
+            errorMessage = data.message;
+          } else if ("detail" in data && typeof data.detail === "string") {
+            errorMessage = data.detail;
+          }
+        }
+        // Fallback to error message
+        if (err.message) {
+          errorMessage = err.message;
+        }
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

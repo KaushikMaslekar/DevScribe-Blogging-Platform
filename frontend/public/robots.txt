@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Allow: /feed
+Allow: /posts/
+Allow: /u/
+
+Disallow: /dashboard
+Disallow: /bookmarks
+Disallow: /login
+Disallow: /register
+
+Crawl-delay: 1
+Request-rate: 30/60
+
+Sitemap: https://devscribe.app/sitemap.xml
+

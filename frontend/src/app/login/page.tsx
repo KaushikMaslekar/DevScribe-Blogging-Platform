@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { login } from "@/lib/auth-api";
 import { setAccessToken } from "@/lib/auth-storage";
@@ -32,8 +33,29 @@ export default function LoginPage() {
       const data = await login({ email, password });
       setAccessToken(data.accessToken, data.expiresInMs);
       router.replace(nextPath);
-    } catch {
-      setError("Unable to sign in. Please check your credentials.");
+    } catch (err) {
+      let errorMessage = "Unable to sign in. Please check your credentials.";
+
+      // Extract error from AxiosError
+      if (err instanceof AxiosError) {
+        // Try to get error message from response data
+        if (typeof err.response?.data === "object" && err.response.data !== null) {
+          const data = err.response.data as Record<string, unknown>;
+          if ("message" in data && typeof data.message === "string") {
+            errorMessage = data.message;
+          } else if ("detail" in data && typeof data.detail === "string") {
+            errorMessage = data.detail;
+          }
+        }
+        // Fallback to error message
+        if (err.message) {
+          errorMessage = err.message;
+        }
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
